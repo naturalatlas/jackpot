@@ -268,8 +268,11 @@ Manager.prototype.allocate = function allocate(fn) {
  * @api private
  */
 Manager.prototype.isAvailable = function isAvailable(net, ignore) {
+  // readyState is not reliable (https://github.com/nodejs/node/issues/38247), which is
+  // why `net.pending !== true` is critical. This fix is inspired by:
+  // https://github.com/Ayase-252/node/commit/89bcaadff7a2486e33ebb6d0412fa059e8e4bcdc
   var readyState = net.readyState
-    , writable = readyState === 'open' || readyState === 'writeOnly'
+    , writable = net.pending !== true && (readyState === 'open' || readyState === 'writeOnly')
     , writePending = net._pendingWriteReqs || 0
     , writeQueue = net._writeQueue || []
     , writes = writeQueue.length || writePending;
@@ -280,7 +283,7 @@ Manager.prototype.isAvailable = function isAvailable(net, ignore) {
 
   // The connection is already closed or has been destroyed, why on earth are we
   // getting it then, remove it from the pool and return 0.
-  if (readyState === 'closed' || net.destroyed) {
+  if ((net.pending !== true && readyState === 'closed') || net.destroyed) {
     this.remove(net);
     return 0;
   }
