@@ -140,6 +140,7 @@ Manager.prototype.pull = function pull(fn) {
  * @api public
  */
 Manager.prototype.allocate = function allocate(fn) {
+  var finished = false;
   if (!this.generator) {
     fn(new Error('Specify a stream #factory'));
     return this;
@@ -155,6 +156,8 @@ Manager.prototype.allocate = function allocate(fn) {
    * @api private
    */
   function either(err) {
+    if (finished) return;
+    finished = true;
     this.removeListener('error', either);
     this.removeListener('connect', either);
     this.removeListener('timeout', timeout);
@@ -172,9 +175,7 @@ Manager.prototype.allocate = function allocate(fn) {
    * @api private
    */
   function timeout() {
-    this.removeListener('timeout', timeout);
-    self.pending--;
-    fn(new Error('Timed out while trying to establish connection'), this);
+    either(new Error('Timed out while trying to establish connection'));
   }
 
   var probabilities = []
